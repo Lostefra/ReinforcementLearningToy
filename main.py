@@ -6,7 +6,7 @@ import numpy as np
 
 from environment import TestEnvironment
 from agent import build_QNetwork, build_DqnAgent, build_replay_buffer, build_train_metrics, build_collect_driver, \
-    driver_warm_up, train_agent, eval_policy
+    driver_warm_up, train_agent, eval_policy, build_categoricalDqnAgent, build_ReinforceAgent
 
 if __name__ == '__main__':
     env = TestEnvironment(discount=0.9)
@@ -15,16 +15,18 @@ if __name__ == '__main__':
     print("Environment: ok")
 
     q_net = build_QNetwork(tf_env)
-    dqn_agent = build_DqnAgent(q_net, tf_env)
-    dqn_agent.initialize()
+    agent = build_DqnAgent(q_net, tf_env)
+    # agent = build_categoricalDqnAgent(tf_env)
+    # agent = build_ReinforceAgent(tf_env)
+    agent.initialize()
     print("Agent: ok")
 
-    replay_buffer = build_replay_buffer(dqn_agent, tf_env, 5000)
+    replay_buffer = build_replay_buffer(agent, tf_env, 5000)
     replay_buffer_observer = replay_buffer.add_batch
     print("Buffer: ok")
 
     train_metrics = build_train_metrics()
-    collect_driver = build_collect_driver(dqn_agent, tf_env, replay_buffer_observer, train_metrics, update_period=1)
+    collect_driver = build_collect_driver(agent, tf_env, replay_buffer_observer, train_metrics, update_period=1)
     print("Starting warm up...")
     driver_warm_up(tf_env, replay_buffer)
     print("\nWarm up: ok")
@@ -40,13 +42,13 @@ if __name__ == '__main__':
 
     # To speed up training, convert the main functions to TensorFlow functions
     collect_driver.run = function(collect_driver.run)
-    dqn_agent.train = function(dqn_agent.train)
+    agent.train = function(agent.train)
 
     print("Starting training...")
-    history = train_agent(dqn_agent, tf_env, dataset, collect_driver, train_metrics, n_iterations=1800)
+    history = train_agent(agent, tf_env, dataset, collect_driver, train_metrics, n_iterations=1800)
     print("\nTraining is over!")
 
-    eval_policy(dqn_agent.policy, tf_env, num_episodes=1)
+    eval_policy(agent.policy, tf_env, num_episodes=1)
 
     # Plot loss history
     plt.plot(np.fromiter(history.keys(), dtype=float), np.fromiter(history.values(), dtype=float))

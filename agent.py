@@ -2,6 +2,9 @@ import numpy as np
 import tensorflow as tf
 import logging
 
+from tf_agents.agents.categorical_dqn import categorical_dqn_agent
+from tf_agents.agents.reinforce import reinforce_agent
+from tf_agents.networks import categorical_q_network, actor_distribution_network
 from tf_agents.networks.q_network import QNetwork
 from tf_agents.agents.dqn.dqn_agent import DqnAgent
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
@@ -17,6 +20,7 @@ from tensorflow.keras.losses import Huber
 from tf_agents.utils import common
 
 
+# #################### DQN AGENT ##################### #
 def build_QNetwork(tf_env):
     preprocessing_layer = Lambda(lambda obs: tf.cast(tf.expand_dims(obs, axis=3), np.float32))  # bs, w, h, c_in
     conv_layer_params = [(1, (2, 2), 1)]  # (C_out, filter_size, stride)
@@ -50,6 +54,53 @@ def build_DqnAgent(q_net, tf_env):
                      train_step_counter=train_step,
                      epsilon_greedy=lambda: epsilon_fn(train_step))
     return agent
+# ################################################################ #
+
+
+# #################### CATEGORICAL DQN AGENT ##################### #
+def build_categoricalDqnAgent(tf_env):
+    fc_layer_params = [256]  # hidden_units
+    num_atoms = 51
+    categorical_q_net = categorical_q_network.CategoricalQNetwork(
+        tf_env.observation_spec(),
+        tf_env.action_spec(),
+        num_atoms=num_atoms,
+        fc_layer_params=fc_layer_params)
+    optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=1e-3)
+    train_step_counter = tf.compat.v2.Variable(0)
+    agent = categorical_dqn_agent.CategoricalDqnAgent(
+        tf_env.time_step_spec(),
+        tf_env.action_spec(),
+        categorical_q_network=categorical_q_net,
+        optimizer=optimizer,
+        min_q_value=-100,
+        max_q_value=100,
+        n_step_update=5,
+        td_errors_loss_fn=common.element_wise_squared_loss,
+        gamma=0.9,
+        train_step_counter=train_step_counter)
+    return agent
+# ################################################################ #
+
+
+# ####################### REINFORCE AGENT ######################## #
+def build_ReinforceAgent(tf_env):
+    fc_layer_params = [256]  # hidden_units
+    actor_net = actor_distribution_network.ActorDistributionNetwork(
+        tf_env.observation_spec(),
+        tf_env.action_spec(),
+        fc_layer_params=fc_layer_params)
+    optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=1e-4)
+    train_step_counter = tf.compat.v2.Variable(0)
+    agent = reinforce_agent.ReinforceAgent(
+        tf_env.time_step_spec(),
+        tf_env.action_spec(),
+        actor_network=actor_net,
+        optimizer=optimizer,
+        normalize_returns=True,
+        train_step_counter=train_step_counter)
+    return agent
+# ################################################################ #
 
 
 def build_replay_buffer(agent, tf_env, max_length=5000):
