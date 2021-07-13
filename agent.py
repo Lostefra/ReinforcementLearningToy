@@ -175,15 +175,8 @@ def eval_policy(policy, tf_env, num_episodes=1):
     for _ in range(num_episodes):
         print("=" * 10, "NEW EPISODE", "=" * 10)
         time_step = tf_env.reset()
-        # tf_env.render()
-        print("-" * 40)
-        print(time_step)
-        print("-" * 40)
+        tf_env.render("human")
         while not time_step.is_last():
             action_step = policy.action(time_step)
-            print("action_step:", action_step)
             time_step = tf_env.step(action_step.action)
-            # tf_env.render()
-            print("-" * 40)
-            print(time_step)
-            print("-" * 40)
+            tf_env.render("human")
